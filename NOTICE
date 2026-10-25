@@ -1,0 +1,24 @@
+AKP05E open firmware
+Copyright 2026 Tomáš Novák and the contributors of this repository
+
+This product is licensed under the Apache License 2.0 (see LICENSE).
+
+Disclaimer
+----------
+Use at your own risk. This software is provided "as is", without warranty of any kind. Flashing firmware can brick a
+device; the authors and contributors accept no responsibility or liability for bricked or damaged devices, lost data or
+any other consequence.
+
+Third-party components
+----------------------
+* ArtInChip Luban-Lite SDK v1.0.3, Copyright (c) ArtInChip Technology Co., Ltd., Apache-2.0
+  https://github.com/artinchip/luban-lite
+  It is not stored in this repository. scripts/setup.ps1 clones it at a pinned commit. The files under
+  firmware/board/akp05-nor and firmware/config are derived from the SDK's board and configuration templates and keep
+  their original copyright and SPDX headers.
+* The SDK bundles RT-Thread (Apache-2.0), CherryUSB (Apache-2.0), littlefs (BSD-3-Clause) and other third-party
+  packages; they are used unmodified at build time.
+
+Not included
+------------
+No firmware, bootloader, updater or artwork of the device manufacturer is part of this repository.
