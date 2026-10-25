@@ -1,0 +1,67 @@
+name: Bug report
+description: The firmware, the host tool or a script does not do what the documentation says
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        **Use at your own risk.** This is unofficial software for the Ajazz AKP05E; flashing can brick a device. Please
+        read `docs/troubleshooting.md` in the repository first, many problems are listed there.
+
+        **Do not attach** a dump of your device, the vendor updater image or any other manufacturer file. Logs and
+        screenshots are fine.
+  - type: dropdown
+    id: area
+    attributes:
+      label: What is affected?
+      options:
+        - Firmware on the device (display, keys, knobs, touch, USB)
+        - Host tool (akp05_tool.exe / akp05_tool.py)
+        - Test kit (.bat launchers)
+        - Build scripts (setup.ps1, build.ps1, ...)
+        - Documentation
+        - Other
+    validations:
+      required: true
+  - type: input
+    id: version
+    attributes:
+      label: Firmware version
+      description: Shown at the bottom of the boot screen ("AKP05E OPEN FIRMWARE ...") and on the UART as "display build ...".
+      placeholder: "1.0.0-abc1234, built 2026-10-25 03:56"
+  - type: input
+    id: tool
+    attributes:
+      label: Host tool and Windows version
+      placeholder: "akp05_tool.exe from release v1.0.0, Windows 11 23H2"
+  - type: textarea
+    id: what
+    attributes:
+      label: What happened?
+      description: What you did, what you expected, what you got. For a flash step say which kit step or command.
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce
+      placeholder: |
+        1. ...
+        2. ...
+  - type: textarea
+    id: logs
+    attributes:
+      label: Output / UART log
+      description: |
+        Console output of the tool, and the UART log (115200 8N1 on the PA.0 pad) if the device was involved. For USB or
+        stability problems a build with `build.ps1 -AppLog 2` prints status lines and a `usb trace` block, which helps a lot.
+      render: text
+  - type: checkboxes
+    id: checks
+    attributes:
+      label: Before you send
+      options:
+        - label: I read docs/troubleshooting.md
+          required: true
+        - label: I did not attach a firmware dump, the vendor updater or other manufacturer files
+          required: true

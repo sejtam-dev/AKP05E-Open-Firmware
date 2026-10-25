@@ -1,0 +1,62 @@
+{
+    "spi-nor": { // Device, The name should be the same with string in image:info:media:type
+        "size": "16m", // Size of SPI NOR
+        "partitions": {
+            "spl":        { "size": "512k" },
+            "env":        { "size": "128k" },
+            "env_r":      { "size": "128k" },
+            "os":         { "size": "2m" },
+            "rodata":     { "size": "1m" },
+            "data":       { "size": "10m" }
+        },
+    },
+    "image": {
+        "info": { // Header information about image
+            "platform": "d13x",
+            "product": "HSV293V3-N4",
+            "version": "1.0.0",
+            "media": {
+                "type": "spi-nor",
+                "device_id": 0,
+            }
+        },
+        // No "updater" and no "spl" target on purpose: the stock bootloader (spl) stays untouched and the
+        // updater images are vendor binaries that are not part of this repository.
+        "target": { // Image components which will be burn to device's partitions
+            "env": {
+                "file": "env.bin",
+                "attr": ["mtd", "optional"],
+                "part": ["env","env_r"]
+            },
+            "os": {
+                "file": "d13x_os.itb",
+                "attr": ["mtd", "required"],
+                "part": ["os"]
+            },
+            "rodata": {
+                "file": "rodata.fatfs",
+                "attr": ["mtd", "optional"],
+                "part": ["rodata"]
+            },
+            "data": {
+                "file": "data.lfs",
+                "attr": ["mtd", "optional"],
+                "part": ["data"]
+            },
+        },
+    },
+    "temporary": { // Pre-proccess to generate image components from raw data
+        "uboot_env": {
+            "env.bin": {
+                "file": "env.txt",
+                "size": "4096",
+                "redundant": "enable",
+            },
+        },
+        "itb": {
+            "d13x_os.itb": {
+                "its": "d13x_os.its"
+            },
+        },
+    },
+}

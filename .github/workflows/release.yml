@@ -1,0 +1,95 @@
+name: release
+
+# Pushing a tag "v<version>" builds everything from that commit and creates the GitHub release:
+#   git tag v1.0.0 && git push origin v1.0.0
+# The tag must match AKP05_FW_VERSION at the top of CMakeLists.txt ("v" + the version). A tag with a hyphen
+# (v1.1.0-rc1) becomes a pre-release. The release is built here, from the repository only, so it never contains a dump
+# or the vendor updater: the kit in the release has no backup_original\ and no updater\ folder.
+
+on:
+  push:
+    tags: ["v*"]
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    name: Build and publish the release
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: The tag must match the firmware version
+        shell: pwsh
+        run: |
+          $tag = "${{ github.ref_name }}"
+          $m = Select-String -Path CMakeLists.txt -Pattern '^set\(AKP05_FW_VERSION "([^"]+)"'
+          if (-not $m) { throw "AKP05_FW_VERSION not found in CMakeLists.txt" }
+          $ver = $m.Matches[0].Groups[1].Value
+          if ($tag -ne "v$ver") { throw "tag $tag does not match AKP05_FW_VERSION $ver in CMakeLists.txt (expected v$ver)" }
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Host tool unit tests
+        shell: pwsh
+        env:
+          PYTHONPATH: host-tool
+        run: python -m unittest discover -s host-tool/tests
+
+      - name: Cache the SDK
+        uses: actions/cache@v4
+        with:
+          path: sdk
+          key: sdk-luban-lite-77fbe30d-${{ hashFiles('firmware/board/**', 'firmware/config/**', 'firmware/image/image_cfg.json', 'scripts/setup.ps1') }}
+          restore-keys: sdk-luban-lite-77fbe30d-
+
+      - name: Setup (SDK clone, board overlay, defconfig, Ninja)
+        shell: pwsh
+        run: ./scripts/setup.ps1
+
+      - name: Build the firmware
+        shell: pwsh
+        run: ./scripts/build.ps1
+
+      - name: Build the host tool and the test kit (no backup, no vendor updater)
+        shell: pwsh
+        run: ./scripts/make_test_kit.ps1 -NoBackup
+
+      - name: Collect the release files
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force release | Out-Null
+          Copy-Item dist/akp05_tool.exe, dist/akp05_test_kit.zip release/
+          Copy-Item build/images/d13x_os.itb, build/images/rodata.fatfs, build/images/data.lfs, build/images/env.bin release/
+          Get-ChildItem release -File |
+            Get-FileHash -Algorithm SHA256 |
+            ForEach-Object { "$($_.Hash)  $(Split-Path $_.Path -Leaf)" } |
+            Set-Content release/SHA256SUMS.txt -Encoding ASCII
+          Get-Content release/SHA256SUMS.txt
+
+      - name: Create the release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: release/*
+          prerelease: ${{ contains(github.ref_name, '-') }}
+          generate_release_notes: true
+          body: |
+            **Use at your own risk.** Unofficial software, no warranty; flashing can brick a device and the authors accept
+            no responsibility or liability for bricked or damaged devices. Take a dump of your own device first.
+
+            **Never share your own dump or a kit you built yourself.** The files below contain no manufacturer data: the
+            kit in this release has no `backup_original\` and no `updater\` folder. A test kit built on your PC with
+            `scripts\make_test_kit.ps1` copies **your** dump of the stock firmware and the vendor updater image into the kit
+            and its zip; that kit is for your own test PC only and must not be uploaded to a release, an issue or a
+            chat, or given to anyone.
+
+            | File | What it is |
+            |---|---|
+            | `d13x_os.itb` | the firmware (`os` partition), flash it with `akp05_tool.exe flash --os d13x_os.itb --write` |
+            | `rodata.fatfs`, `data.lfs`, `env.bin` | the other partitions, only needed to change the logo / bootloader environment (the `data` image has no boot logo) |
+            | `akp05_tool.exe` | the Windows host tool (dump, flash, recovery, talk to the device) |
+            | `akp05_test_kit.zip` | the tool, the firmware and numbered `.bat` launchers, see its README.txt ("Which steps to use when"). It has **no** `backup_original\` and **no** `updater\`: make your own dump (step 08) and put the vendor updater image into `updater\default.img` for the BootROM recovery |
+            | `SHA256SUMS.txt` | SHA-256 of the files above |

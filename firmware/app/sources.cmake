@@ -1,0 +1,18 @@
+# Application sources of the AKP05E firmware (replaces the SDK's application/rt-thread/helloworld).
+set(AKP05_APP_SOURCES
+    ${CMAKE_CURRENT_LIST_DIR}/main.c
+    ${CMAKE_CURRENT_LIST_DIR}/protocol.c
+    ${CMAKE_CURRENT_LIST_DIR}/ringbuf.c
+    ${CMAKE_CURRENT_LIST_DIR}/backlight.c
+    ${CMAKE_CURRENT_LIST_DIR}/leds.c
+    ${CMAKE_CURRENT_LIST_DIR}/input.c
+    ${CMAKE_CURRENT_LIST_DIR}/touch.c
+    ${CMAKE_CURRENT_LIST_DIR}/display.c
+    ${CMAKE_CURRENT_LIST_DIR}/threads.c
+    ${CMAKE_CURRENT_LIST_DIR}/storage.c
+    ${CMAKE_CURRENT_LIST_DIR}/usb_hid.c
+    ${CMAKE_CURRENT_LIST_DIR}/diag.c
+)
+set(AKP05_APP_INCLUDE_DIRS
+    ${CMAKE_CURRENT_LIST_DIR}
+)

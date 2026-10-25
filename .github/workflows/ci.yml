@@ -1,0 +1,94 @@
+name: ci
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  host-tool-tests:
+    name: Host tool tests (protocol models, no hardware)
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Run the unit tests
+        env:
+          PYTHONPATH: host-tool
+        run: python -m unittest discover -s host-tool/tests -v
+
+  host-tool-exe:
+    name: Host tool executable (akp05_tool.exe)
+    runs-on: windows-latest
+    needs: host-tool-tests
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Build the executable (PyInstaller)
+        shell: pwsh
+        run: ./scripts/build_host_tool.ps1
+      - name: Smoke test
+        shell: pwsh
+        run: ./dist/akp05_tool.exe flash --help
+      - uses: actions/upload-artifact@v4
+        with:
+          name: akp05-tool
+          path: dist/akp05_tool.exe
+          if-no-files-found: error
+
+  firmware:
+    name: Firmware (CMake + Ninja, Luban-Lite SDK v1.0.3)
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Cache the SDK
+        id: sdk-cache
+        uses: actions/cache@v4
+        with:
+          path: sdk
+          key: sdk-luban-lite-77fbe30d-${{ hashFiles('firmware/board/**', 'firmware/config/**', 'firmware/image/image_cfg.json', 'scripts/setup.ps1') }}
+          restore-keys: sdk-luban-lite-77fbe30d-
+
+      - name: Setup (SDK clone, board overlay, defconfig, Ninja)
+        shell: pwsh
+        run: ./scripts/setup.ps1
+
+      - name: Build
+        shell: pwsh
+        run: ./scripts/build.ps1
+
+      - name: Checksums
+        shell: pwsh
+        run: |
+          Get-ChildItem build/images/d13x_os.itb, build/images/rodata.fatfs, build/images/data.lfs, build/images/env.bin |
+            Get-FileHash -Algorithm SHA256 |
+            ForEach-Object { "$($_.Hash)  $(Split-Path $_.Path -Leaf)" } |
+            Tee-Object build/images/SHA256SUMS.txt
+
+      - name: Show the load segments and the entry point
+        shell: pwsh
+        run: |
+          & "sdk/toolchain/bin/riscv64-unknown-elf-readelf.exe" -lW build/images/d13x.elf | Select-String "LOAD|Entry"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: akp05-firmware
+          path: |
+            build/images/d13x_os.itb
+            build/images/rodata.fatfs
+            build/images/data.lfs
+            build/images/env.bin
+            build/images/d13x.elf
+            build/images/akp05_fw.map
+            build/images/SHA256SUMS.txt
+          if-no-files-found: error

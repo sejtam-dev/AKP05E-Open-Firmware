@@ -1,0 +1,35 @@
+name: Feature request
+description: Suggest a change or an addition
+labels: ["enhancement"]
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: What do you want to do?
+      description: Describe the use case first, not the solution.
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: What would you like to see?
+      description: |
+        If it changes what a host application sees (event codes, states, timing), say so: such changes are listed in
+        docs/host-protocol.md section 5 because plugins may depend on them.
+  - type: dropdown
+    id: area
+    attributes:
+      label: Area
+      options:
+        - Firmware
+        - Host protocol (events, commands)
+        - Host tool
+        - Test kit
+        - Build / CI / releases
+        - Documentation
+    validations:
+      required: true
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives you considered
