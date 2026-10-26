@@ -39,6 +39,7 @@ Status as of the end of the bring-up (2026-10-25).
 
 | Area | State |
 |---|---|
+| selftest mode: BUTTONS, DISPLAY, TOUCH, ENCODERS subtests; double-buffered rendering; touch_armed fix | not yet flashed and verified on hardware (feat/selftest branch) |
 | LED strip | the stock firmware never drives it either (see hardware.md); commands are stored only |
 | `BGPIC` background picture | ignored, as in the stock firmware |
 | touch swipe thresholds | follow the stock numbers but the state machine is simplified |

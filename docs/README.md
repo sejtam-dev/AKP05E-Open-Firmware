@@ -14,6 +14,7 @@
 | [host-tool.md](host-tool.md) | the Windows tool `akp05_tool`: commands, safety rules, test kit |
 | [stock-firmware.md](stock-firmware.md) | what is known about the original firmware, the address map of every rebuilt function, how it was analysed |
 | [releasing.md](releasing.md) | how a release is made (tag `v<version>`), what it contains, what must never be uploaded |
+| [selftest.md](selftest.md) | standalone hardware diagnostic (no host needed): entry, menu, per-test layout, display implementation notes |
 | [testing.md](testing.md) | automated tests, what is verified on hardware, what is not, a checklist for new builds |
 | [troubleshooting.md](troubleshooting.md) | symptom -> cause -> fix, for every problem met during the bring-up |
 
