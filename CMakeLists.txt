@@ -9,7 +9,7 @@ project(akp05_firmware LANGUAGES C ASM)
 
 # ------------------------------------------------------------------ settings you may want to change
 # Edit the version here: it is a plain variable, so a change takes effect at the next build without touching the cache.
-set(AKP05_FW_VERSION "1.1.0")            # shown on the boot screen as "AKP05E OPEN FIRMWARE <version>[-<git hash>]"
+set(AKP05_FW_VERSION "1.1.1")            # shown on the boot screen as "AKP05E OPEN FIRMWARE <version>[-<git hash>]"
 # The next three are cache entries, set from the command line or from scripts\build.ps1 (-AppLog, -UsbDebug); the values
 # below are only the defaults of the first configure of a build directory.
 set(AKP05_APP_LOG 1 CACHE STRING "Application UART log level: 0 errors only, 1 events, 2 verbose")
