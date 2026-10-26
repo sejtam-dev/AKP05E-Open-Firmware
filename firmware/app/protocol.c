@@ -49,6 +49,8 @@ void protocol_parse(const uint8_t *p, struct cmd_state *st)
             set_cmd(st, CMD_STP);
         else if (EQ(6, 'E') && EQ(7, 'T') && EQ(8, 'L') && EQ(9, 'B'))
             set_cmd(st, CMD_SETLB);
+        else if (EQ(6, 'E') && EQ(7, 'L') && EQ(8, 'F') && EQ(9, 'T'))
+            set_cmd(st, CMD_SELFTEST);
         break;
     case 'L':
         if (EQ(6, 'O') && EQ(7, 'G'))

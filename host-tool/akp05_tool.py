@@ -34,7 +34,8 @@ from upg_proto import (PID, VID, Upg, UpgWriter, ProtoError, ReportTransport, pa
                        UPG_MODE_PARTITION_UPGRADE)
 
 STREAMDOCK_VID = 0x0300
-APPNEW_PACKET = b"CRT" + bytes(2) + b"APPNEW"      # host command: reboot into the HID bootloader
+APPNEW_PACKET  = b"CRT" + bytes(2) + b"APPNEW"     # host command: reboot into the HID bootloader
+SELFTEST_PACKET = b"CRT" + bytes(2) + b"SELFT"    # host command: toggle selftest mode
 
 
 # ---------------------------------------------------------------- transports
@@ -599,6 +600,21 @@ def cmd_hid_talk(args):
 
 
 
+def cmd_selftest(args):
+    """Send CRT SELFT to toggle selftest mode on the running firmware."""
+    import winhid
+    devs = [d for d in winhid.list_devices(args.vid, args.pid) if d["output_len"] > 1]
+    if not devs:
+        raise SystemExit("no HID interface found for %04x:%04x - is the firmware running?" % (args.vid, args.pid))
+    devs.sort(key=lambda d: (d["usage_page"] != 0xFFA0, d["interface_number"] or 0))
+    dev = devs[0]
+    size = dev["output_len"] - 1
+    report = b"\x00" + SELFTEST_PACKET.ljust(size, b"\x00")
+    print("sending SELFT to interface %s (usage_page %04x) ..." % (dev["interface_number"], dev["usage_page"]))
+    winhid.write(dev["path"], report)
+    print("done - selftest mode toggled on the device")
+
+
 def main():
     p = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     sub = p.add_subparsers(dest="cmd", required=True)
@@ -668,10 +684,14 @@ def main():
     a = sub.add_parser("hid-talk", help="talk to the RUNNING firmware over HID: send commands, print what comes back")
     a.add_argument("--vid", type=lambda x: int(x, 0), default=0x0300)
     a.add_argument("--pid", type=lambda x: int(x, 0), default=0x3004)
-    a.add_argument("--cmd", action="append", help="DIS, HAN, STP, CON, LIG:30, CLE:C or hex:<bytes> (repeatable)")
+    a.add_argument("--cmd", action="append", help="DIS, HAN, STP, CON, LIG:30, CLE:C, SELFT or hex:<bytes> (repeatable)")
     a.add_argument("--wait", type=float, default=1.0, help="seconds to listen after each command")
     a.add_argument("--listen", type=float, default=10.0, help="seconds to listen at the end for key/knob/touch events")
     a.set_defaults(fn=cmd_hid_talk)
+    a = sub.add_parser("selftest", help="toggle the hardware selftest mode on the RUNNING firmware")
+    a.add_argument("--vid", type=lambda x: int(x, 0), default=0x0300)
+    a.add_argument("--pid", type=lambda x: int(x, 0), default=0x3004)
+    a.set_defaults(fn=cmd_selftest)
     args = p.parse_args()
     try:
         args.fn(args)

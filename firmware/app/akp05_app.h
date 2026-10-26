@@ -63,6 +63,7 @@ enum akp05_cmd {
     CMD_LBLIG  = 14,     /* LED brightness                                 */
     CMD_QUCMD  = 15,     /* LED mode                                       */
     CMD_DELED  = 16,     /* LEDs off                                       */
+    CMD_SELFTEST = 17,   /* enter / toggle selftest mode                   */
 };
 
 /*
@@ -210,5 +211,12 @@ void usb_serial_from_efuse(void);                     /* stock 0x402399d4 */
 
 /* storage.c */
 int  logo_write_file(const char *path, const uint8_t *img_buf, uint32_t len);  /* stock 0x40243bf6 */
+
+/* display.c: selftest drawing helpers (visual coordinates; call display_flush after drawing) */
+void display_fill(int vx, int vy, int vw, int vh, uint32_t argb);
+void display_text(int vx, int vy, const char *s, int scale, uint16_t rgb565);
+
+/* selftest.c */
+#include "selftest.h"
 
 #endif /* AKP05_APP_H */

@@ -88,6 +88,12 @@ static void matrix_key_pressed(int idx, int row_offset)
 {
     uint8_t code = key_code_tbl[idx + row_offset];
 
+    if (g_selftest_mode) {
+        selftest_key_event(code, 1);
+        wait_release();
+        selftest_key_event(code, 0);
+        return;
+    }
     if (g_backlight_on == 1) {
         if (g_host_state == 1) {
             ack_key(code, 1);
@@ -146,8 +152,10 @@ void input_threads_entry_keyboard(void *p)
     (void)p;
     for (;;) {
         key_matrix_scan();
-        if (g_host_state == 1)
+        if (g_host_state == 1 || g_selftest_mode)
             touch_poll();
+        if (g_selftest_mode)
+            selftest_tick();
         rt_thread_mdelay(30);
     }
 }
@@ -164,7 +172,13 @@ struct knob {
     struct knob *next;
 };
 
-/* stock 0x402933c8 and 0x402b3a90 */
+/*
+ * stock 0x402933c8 and 0x402b3a90.
+ * Physical encoder order left to right: 1, 2, 3, 4.
+ * knob_ids[2]=0xa0 is encoder 1 (leftmost), knob_ids[0]=0x50 is encoder 2,
+ * knob_ids[1]=0x90 is encoder 3, knob_ids[3]=0x70 is encoder 4 (rightmost).
+ * Deduced from the button pin association (see knob_buttons_scan below).
+ */
 static const uint8_t knob_ids[4] = { 0x50, 0x90, 0xa0, 0x70 };
 static const char *const knob_pins[4][2] = {
     { "PB.6", "PB.7" }, { "PB.9", "PB.10" }, { "PE.12", "PE.14" }, { "PA.4", "PA.5" },
@@ -206,10 +220,18 @@ static void knob_process(struct knob *k, int a, int b)
         return;
 
     k->b_low = (uint8_t)(b == 0);
-    if (k->b_at_fall != 0 && b == 0)
-        ack_key(k->id + 1, 0);          /* clockwise; state byte stays 0 as in the stock frame */
-    if (k->b_at_fall == 0 && k->b_low == 0)
-        ack_key(k->id, 0);              /* counter-clockwise */
+    if (k->b_at_fall != 0 && b == 0) {
+        if (g_selftest_mode)
+            selftest_key_event(k->id + 1, 0);
+        else
+            ack_key(k->id + 1, 0);      /* clockwise; state byte stays 0 as in the stock frame */
+    }
+    if (k->b_at_fall == 0 && k->b_low == 0) {
+        if (g_selftest_mode)
+            selftest_key_event(k->id, 0);
+        else
+            ack_key(k->id, 0);          /* counter-clockwise */
+    }
     k->armed = 0;
 }
 
@@ -225,6 +247,10 @@ static uint32_t ms_now(void)
     return (uint32_t)((uint64_t)rt_tick_get() * 1000 / RT_TICK_PER_SECOND);
 }
 
+/*
+ * Encoder button physical order, left to right: 1=0x37 (PE.11), 2=0x35 (PE.15),
+ *                                                3=0x33 (PB.8),  4=0x36 (PB.11).
+ */
 static void knob_buttons_scan(void)
 {
     static const struct { const char *pin; uint8_t code; } btn[KNOB_BTN_COUNT] = {
@@ -235,6 +261,7 @@ static void knob_buttons_scan(void)
     static uint32_t since[KNOB_BTN_COUNT];           /* when the raw level changed */
     uint32_t now = ms_now();
     int i;
+    uint8_t left_down, right_down;
 
     for (i = 0; i < KNOB_BTN_COUNT; i++) {
         uint8_t down = (pin_level(btn[i].pin) == 0);
@@ -244,10 +271,18 @@ static void knob_buttons_scan(void)
             since[i] = now;
         } else if (down != reported[i] && now - since[i] >= KNOB_BTN_DEBOUNCE) {
             reported[i] = down;
-            ack_key(btn[i].code, down);
+            if (g_selftest_mode)
+                selftest_key_event(btn[i].code, down);
+            else
+                ack_key(btn[i].code, down);
             app_log("knob button 0x%02x %s\n", btn[i].code, down ? "down" : "up");
         }
     }
+
+    /* L+R combo detection (encoder 1 = 0x37, encoder 4 = 0x36): entry / exit of selftest */
+    left_down  = (pin_level("PE.11") == 0);   /* encoder 1, code 0x37 */
+    right_down = (pin_level("PB.11") == 0);   /* encoder 4, code 0x36 */
+    selftest_combo_poll(now, left_down, right_down);
 }
 
 void input_threads_entry_ec11(void *p)
@@ -256,14 +291,15 @@ void input_threads_entry_ec11(void *p)
 
     (void)p;
     for (;;) {
-        if (g_host_state == 1) {
+        if (g_host_state == 1 || g_selftest_mode) {
             struct knob *k = list;
             int n;
 
             for (n = 0; n < 4 && k; n++, k = k->next)
                 knob_process(k, pin_level(k->pin_a) != 0, pin_level(k->pin_b) != 0);
-            knob_buttons_scan();
         }
+        /* buttons and combo always scanned (combo is needed for selftest entry/exit) */
+        knob_buttons_scan();
         rt_thread_mdelay(1);
     }
 }

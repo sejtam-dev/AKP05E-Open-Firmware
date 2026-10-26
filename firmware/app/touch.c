@@ -147,6 +147,11 @@ static void send_event(uint8_t code, uint8_t state, int with_position)
 {
     uint8_t frame[PKT_IN_SIZE];
 
+    if (g_selftest_mode) {
+        selftest_touch_event(code, state, with_position ? tp.x0 : 0,
+                             with_position ? tp.y0 : 0);
+        return;
+    }
     ack_init(frame);
     frame[9] = code;
     frame[10] = state;
@@ -165,6 +170,10 @@ static void send_swipe(uint8_t code, uint8_t dir, int dx, int dy)
 {
     uint8_t frame[PKT_IN_SIZE];
 
+    if (g_selftest_mode) {
+        selftest_touch_event(code, 1, (uint16_t)(uint8_t)dir, 0);
+        return;
+    }
     ack_init(frame);
     frame[9] = code;
     frame[10] = 1;
@@ -228,7 +237,7 @@ void touch_poll(void)
 
             touch_active = 1;
             touch_sent = 0;
-            touch_armed = (g_host_state == 1 && g_backlight_on == 1);
+            touch_armed = (g_host_state == 1 && g_backlight_on == 1) || (g_selftest_mode != 0);
             touch_code = (t >= 0) ? tile_code[t] : CODE_OUTSIDE;
             touch_t0 = ms_now_touch();
         } else if (touch_armed && !touch_sent && ms_now_touch() - touch_t0 >= TOUCH_HOLD_MS &&

@@ -131,6 +131,13 @@ void dispatch_command(struct cmd_state *st, const uint8_t *pkt, struct app_ctx *
         g_leds_on = 0;
         break;
 
+    case CMD_SELFTEST:
+        if (g_selftest_mode)
+            selftest_stop();
+        else
+            selftest_start();
+        break;
+
     default:                                        /* CON, BAT, LOG, BGPIC, BGCLE: handled by the data path */
         break;
     }
