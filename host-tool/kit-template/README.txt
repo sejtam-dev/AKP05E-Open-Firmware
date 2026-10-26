@@ -52,6 +52,7 @@ Step  Runs (akp05_tool.exe ...)                               Device state   Wri
 14    load-updater --only-psram --exec-offset N -v            BOOTROM        RAM only; debugging aid for step 10
 15    hid-list; hid-talk --cmd DIS --cmd LIG:30 --listen 20   RUNNING        nothing to flash (changes backlight, connects)
 16    hid-dump --transport bulk --out dump_bulk_<date>_<time> UPDATER        nothing to the device; writes .bin files to the PC, compares them with the HID dump
+17    selftest  (host command CRT SELFT)                       RUNNING        nothing; device enters standalone selftest mode
 
 Confirmations: steps 02 (ENTER), 05, 06, 07, 11, 13 (FLASH) and 10 (LOAD) ask you to type the word.
 Every writing step reads the partition back and compares it byte for byte; "MISMATCH" or an error means: do not reboot,
@@ -82,6 +83,9 @@ What each step is for
   16  Dump partitions through the loaded updater (after step 10): first the partition table, then the partitions you type
       (default env, "all" = the whole flash), into dump_bulk_<date>_<time>; afterwards every file is compared byte for byte
       with the newest HID dump (step 08, folder dump_2...). Every line must say IDENTICAL.
+  17  Enter the standalone hardware selftest mode (no host needed after this step). The device shows a menu on screen;
+      navigate with the physical keys (keys 1-4: BUTTONS / DISPLAY / TOUCH / ENCODERS test, key 10: exit to menu,
+      L+R encoder hold 3 s: exit selftest). Close your own application first.
 
 3. Which steps to use when
 --------------------------
@@ -106,6 +110,11 @@ D. Look at what the running firmware does
    15 connects like a host application (DIS, backlight 30) and prints key, knob and touch events for 20 s. Close your
    own application first, only one program can have the device open.
 
+D2. Run the hardware selftest (verify buttons, display, touch strip and encoders without a host application)
+   17
+   The device enters selftest mode; use the physical keys and the touch strip to navigate and run each test.
+   Can also be entered without a PC: hold the left and right encoder buttons for 3 s on the idle screen.
+
 E. Go back to the stock firmware (the device still reaches the HID bootloader)
    02 -> 03 -> 07, then replug
    07 needs backup_original\ (your own dump, only present if the kit was built with one) and writes os, rodata, data and
@@ -123,7 +132,7 @@ G. Check that a dump is complete, or dump without the HID bootloader
    16 reads partitions through the updater and compares them with the newest dump from step 08 (every line must say
    IDENTICAL).
 
-Quick map: 01 15 = look only. 02 03 04 12 = prepare, nothing written. 08 16 = read the flash into files.
+Quick map: 01 15 17 = look only / test only. 02 03 04 12 = prepare, nothing written. 08 16 = read the flash into files.
 05 06 07 = write through the HID bootloader. 10 14 = BootROM, RAM only. 11 13 = write through the BootROM updater.
 09 = logo only.
 

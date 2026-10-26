@@ -36,7 +36,7 @@
 #define BANNER_SCALE    3                           /* pixels per font pixel */
 #define BANNER_X        16
 #define BANNER_LINE_H   (7 * BANNER_SCALE + 6)
-#define BANNER_H        (2 * BANNER_LINE_H + 12)    /* black strip at the bottom of the screen */
+#define BANNER_H        (3 * BANNER_LINE_H + 12)    /* black strip at the bottom of the screen */
 
 #define TILE_W      112
 #define TILE_H      112
@@ -133,8 +133,8 @@ static void fb_prepare(void)
     mpp_fb_close(fb);
 }
 
-/* fill a rectangle of page `page` with black: stock 0x402679d6. The display is powered on lazily here. */
-static void fb_fill_rect(int x, int y, int w, int h, int page)
+/* GE fill a rectangle at buffer coordinates `(x,y,w,h)` on page `page` with `argb`. */
+static void fb_fill_rect_colored(int x, int y, int w, int h, int page, uint32_t argb)
 {
     struct mpp_fb *fb = mpp_fb_open();
     struct aicfb_screeninfo info;
@@ -151,7 +151,7 @@ static void fb_fill_rect(int x, int y, int w, int h, int page)
 
             memset(&fill, 0, sizeof(fill));
             fill.type = GE_NO_GRADIENT;
-            fill.start_color = 0xff000000;
+            fill.start_color = argb;
             fill.dst_buf.buf_type = MPP_PHY_ADDR;
             fill.dst_buf.phy_addr[0] = (unsigned long)info.framebuffer + (page ? info.smem_len : 0);
             fill.dst_buf.stride[0] = info.stride;
@@ -169,6 +169,12 @@ static void fb_fill_rect(int x, int y, int w, int h, int page)
         }
     }
     mpp_fb_close(fb);
+}
+
+/* fill a rectangle of page `page` with black: stock 0x402679d6. The display is powered on lazily here. */
+static void fb_fill_rect(int x, int y, int w, int h, int page)
+{
+    fb_fill_rect_colored(x, y, w, h, page, 0xff000000);
 }
 
 /* the JPEG / PNG decoder for `pic`, initialised for `len` bytes; NULL for an unsupported picture */
@@ -349,7 +355,7 @@ struct banner_canvas {
     int       w, h;
 };
 
-static void banner_pixel(const struct banner_canvas *cv, int x, int y)
+static void banner_pixel(const struct banner_canvas *cv, int x, int y, uint16_t rgb565)
 {
     if (x < 0 || y < 0 || x >= cv->w || y >= cv->h)
         return;
@@ -357,13 +363,14 @@ static void banner_pixel(const struct banner_canvas *cv, int x, int y)
     x = cv->w - 1 - x;
     y = cv->h - 1 - y;
 #endif
-    ((uint16_t *)(cv->mem + (uint32_t)y * cv->stride))[x] = 0xffff;
+    ((uint16_t *)(cv->mem + (uint32_t)y * cv->stride))[x] = rgb565;
 }
 
-/* draw one line of the banner (white pixels) at x, y of the visible screen */
-static void banner_line(const struct banner_canvas *cv, int x, int y, const char *s)
+/* draw one line of text at visual (x, y) on the canvas with the given scale and color */
+static void banner_line_ex(const struct banner_canvas *cv, int x, int y, const char *s, int scale,
+                           uint16_t rgb565)
 {
-    for (; *s; s++, x += 6 * BANNER_SCALE) {
+    for (; *s; s++, x += 6 * scale) {
         int c = *s;
         int row, col, dy, dx;
 
@@ -375,11 +382,16 @@ static void banner_line(const struct banner_canvas *cv, int x, int y, const char
             for (col = 0; col < 5; col++) {
                 if (!(font5x7[c - FONT_FIRST][row] & (1 << (4 - col))))
                     continue;
-                for (dy = 0; dy < BANNER_SCALE; dy++)
-                    for (dx = 0; dx < BANNER_SCALE; dx++)
-                        banner_pixel(cv, x + col * BANNER_SCALE + dx, y + row * BANNER_SCALE + dy);
+                for (dy = 0; dy < scale; dy++)
+                    for (dx = 0; dx < scale; dx++)
+                        banner_pixel(cv, x + col * scale + dx, y + row * scale + dy, rgb565);
             }
     }
+}
+
+static void banner_line(const struct banner_canvas *cv, int x, int y, const char *s)
+{
+    banner_line_ex(cv, x, y, s, BANNER_SCALE, 0xffff);
 }
 
 /* black strip with the firmware version and the build time at the bottom of the visible screen; the frame buffer of
@@ -402,6 +414,7 @@ static void draw_banner(const struct aicfb_screeninfo *info, uint8_t *page_mem)
     banner_line(&cv, BANNER_X, y0 + 6, line);
     rt_snprintf(line, sizeof(line), "BUILT %s %s", AKP05_BUILD_DATE, AKP05_BUILD_TIME);
     banner_line(&cv, BANNER_X, y0 + 6 + BANNER_LINE_H, line);
+    banner_line(&cv, BANNER_X, y0 + 6 + 2 * BANNER_LINE_H, "HOLD L+R ENCODER 3S: SELFTEST");
 }
 
 /* stock 0x40243ca6: draw /data/logo_jpg_dir/test_logo.jpg full screen. Not in stock: the banner with the firmware
@@ -465,6 +478,42 @@ void display_logo(void)
         if (fb != NULL)
             mpp_fb_close(fb);
     }
+}
+
+/* ---- public drawing API for the selftest --------------------------------------------------------- */
+/*
+ * display_fill / display_text use VISUAL coordinates: (0,0) = top-left of the visible screen,
+ * (LCD_W-1, LCD_H-1) = bottom-right.  The panel is 180° rotated relative to the frame buffer, so
+ * both functions convert to buffer coordinates internally before drawing.
+ * Drawing goes to the current page (g_clear_toggle); call display_flush(g_clear_toggle) afterwards.
+ */
+
+/* GE fill a rectangle in visual coordinates on the current drawing page. */
+void display_fill(int vx, int vy, int vw, int vh, uint32_t argb)
+{
+    fb_fill_rect_colored(LCD_W - vx - vw, LCD_H - vy - vh, vw, vh, g_clear_toggle, argb);
+}
+
+/* Draw text at visual (vx, vy) on the current drawing page. scale = pixels per font pixel.
+ * Invalidates the CPU cache before writing (so GE-filled pixels are not lost) and cleans it
+ * afterwards (so the display DMA sees the new pixels). */
+void display_text(int vx, int vy, const char *s, int scale, uint16_t rgb565)
+{
+    struct mpp_fb *fb = mpp_fb_open();
+    struct aicfb_screeninfo info;
+
+    if (fb == NULL)
+        return;
+    if (fb_info_get(fb, &info) == 0 && info.stride == info.width * 2) {
+        uint8_t *page_mem = (uint8_t *)(unsigned long)(info.framebuffer +
+                                                       (g_clear_toggle ? info.smem_len : 0));
+        struct banner_canvas cv = { page_mem, info.stride, (int)info.width, (int)info.height };
+
+        aicos_dcache_clean_invalid_range((unsigned long *)page_mem, info.smem_len);
+        banner_line_ex(&cv, vx, vy, s, scale, rgb565);
+        aicos_dcache_clean_invalid_range((unsigned long *)page_mem, info.smem_len);
+    }
+    mpp_fb_close(fb);
 }
 
 /* ---- UART test commands (msh), for bringing the display up without flashing again ------------------ */

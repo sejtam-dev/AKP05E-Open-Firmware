@@ -37,6 +37,7 @@ follows at byte 5, parameters at byte 8 or later. The rest is zero. Unknown repo
 | `BAT` | `42 41 54` | upload header, see below | key image |
 | `LOG` | `4c 4f 47` | upload header, see below | boot logo |
 | `BGPIC` / `BGCLE` | `42 47 50 49 43` / `42 47 43 4c 45` | `BGPIC`: upload header | background picture: **received and ignored** (also by the stock firmware) |
+| `SELFT` | `53 45 4c 46 54` | - | enter the standalone hardware selftest mode (see [selftest.md](selftest.md)); **not in the stock firmware** |
 
 Typical session: `DIS`, `LIG n`, then for every key `BAT` + payload, then `STP`; later `CLE <key>` + `STP` to change a
 tile, `HAN` to sleep, `CLE C` to disconnect.
@@ -104,6 +105,7 @@ written against the original dock may react differently; the table says how and 
 | 8 | Events while no host is connected | not sent | not sent (same); frames still queued are discarded on a bus reset | none |
 | 9 | Boot screen | the logo, or a dark screen without a logo file | the logo (or black) plus a strip with the firmware version and build time at the bottom, until the first host command that clears the screen | none for protocol users; the strip is visible if a plugin never clears the screen |
 | 10 | USB | - | enumeration watchdog (re-attach after 5 s unconfigured) and filters for two defects of the CherryUSB port (see [troubleshooting.md](troubleshooting.md)) | none; after a bus reset the device re-enumerates faster and more reliably |
+| 11 | `SELFT` command | not present | `CRT SELFT` enters the standalone selftest mode; the device stops sending HID events for the duration and exits selftest on the same command or on the L+R encoder hold; see [selftest.md](selftest.md) | no existing plugin sends this command, so no breakage; a host that monitors `g_host_state` will see no events while selftest is active |
 
 Not changed, so existing assumptions stay valid: matrix key codes and states, rotation codes (counter-clockwise, clockwise
 = code + 1, state 0), `LOG` acknowledgement, `BAT` / `STP` / `CLE` / `DIS` / `HAN` semantics, the 15 s host watchdog.

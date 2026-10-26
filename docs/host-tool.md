@@ -26,6 +26,7 @@ The default transport needs only the standard library; `--transport bulk` / `lib
 | `hid-hwinfo` | HID bootloader | no | `GET_HWINFO`, `boot_stage` must be 1 |
 | `hid-dump --out <dir> [--partitions os,env] [--list-only]` | HID bootloader (updater: `--transport bulk`) | no | read the partitions into `<dir>\<name>.bin` plus `partition_table.txt`, prints the CRC32 of each |
 | `flash [--os f] [--rodata f] [--data f] [--env f] [--write] [--no-verify]` | HID bootloader or updater | **yes** | dry run unless `--write` (then type `FLASH`) |
+| `selftest` | running firmware | no | sends `CRT SELFT`: device enters standalone selftest mode (see [selftest.md](selftest.md)) |
 | `usb-info` | BootROM / updater | no | `GET_HWINFO` of `33C3:6677` |
 | `load-updater --img <vendor.img> [--exec-offset 0] [--only-psram]` | BootROM | RAM only | load the vendor updater into RAM (type `LOAD`) |
 
